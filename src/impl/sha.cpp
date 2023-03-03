@@ -24,6 +24,10 @@
 #define OPENSSL_API_COMPAT 0x10100000L
 #endif
 
+#ifdef USE_WOLFSSL
+#include <options.h>
+#endif
+
 #include <openssl/sha.h>
 
 #endif

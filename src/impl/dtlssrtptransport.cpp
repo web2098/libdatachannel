@@ -304,6 +304,10 @@ void DtlsSrtpTransport::postHandshake() {
 	const size_t materialLen = keySizeWithSalt * 2;
 	std::vector<unsigned char> material(materialLen);
 
+#ifdef USE_WOLFSSL
+	wolfSSL_KeepArrays(mSsl);
+#endif
+
 	// returns 1 on success, 0 or -1 on failure (OpenSSL API is a complete mess...)
 	if (SSL_export_keying_material(mSsl, material.data(), materialLen, label.c_str(), label.size(),
 	                               nullptr, 0, 0) <= 0)

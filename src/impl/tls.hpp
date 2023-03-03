@@ -68,6 +68,10 @@ std::shared_ptr<mbedtls_x509_crt> new_x509_crt();
 #include <winsock2.h>
 #endif
 
+#ifdef USE_WOLFSSL
+#include <options.h>
+#endif
+
 #include <openssl/ssl.h>
 
 #include <openssl/bio.h>

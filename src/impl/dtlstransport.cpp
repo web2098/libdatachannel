@@ -742,8 +742,11 @@ DtlsTransport::DtlsTransport(shared_ptr<IceTransport> lower, certificate_ptr cer
 		// See https://www.rfc-editor.org/rfc/rfc8261.html#section-5
 		// RFC 8827: Implementations MUST NOT implement DTLS renegotiation
 		// See https://www.rfc-editor.org/rfc/rfc8827.html#section-6.5
-		SSL_CTX_set_options(mCtx, SSL_OP_NO_SSLv3 | SSL_OP_NO_COMPRESSION | SSL_OP_NO_QUERY_MTU |
-		                              SSL_OP_NO_RENEGOTIATION);
+		long options = SSL_OP_NO_SSLv3 | SSL_OP_NO_COMPRESSION | SSL_OP_NO_QUERY_MTU;
+#ifdef SSL_OP_NO_RENEGOTIATION
+		options |= SSL_OP_NO_RENEGOTIATION;
+#endif
+		SSL_CTX_set_options(mCtx, options);
 
 		SSL_CTX_set_min_proto_version(mCtx, DTLS1_VERSION);
 		SSL_CTX_set_read_ahead(mCtx, 1);
@@ -795,8 +798,14 @@ DtlsTransport::DtlsTransport(shared_ptr<IceTransport> lower, certificate_ptr cer
 		// See https://www.rfc-editor.org/rfc/rfc8827.html#section-6.5 Warning:
 		// SSL_set_tlsext_use_srtp() returns 0 on success and 1 on error
 		// Try to use GCM suite
+#ifdef USE_WOLFSSL
 		if (SSL_set_tlsext_use_srtp(
-		        mSsl, "SRTP_AEAD_AES_256_GCM:SRTP_AEAD_AES_128_GCM:SRTP_AES128_CM_SHA1_80")) {
+		        mSsl, "SRTP_AEAD_AES_256_GCM:SRTP_AEAD_AES_128_GCM:SRTP_AES128_CM_SHA1_80") == 0)
+#else
+		if (SSL_set_tlsext_use_srtp(
+		        mSsl, "SRTP_AEAD_AES_256_GCM:SRTP_AEAD_AES_128_GCM:SRTP_AES128_CM_SHA1_80"))
+#endif
+		{
 			if (SSL_set_tlsext_use_srtp(mSsl, "SRTP_AES128_CM_SHA1_80"))
 				throw std::runtime_error("Failed to set SRTP profile: " +
 				                         openssl::error_string(ERR_get_error()));
@@ -833,7 +842,11 @@ void DtlsTransport::start() {
 		std::lock_guard lock(mSslMutex);
 
 		size_t mtu = mMtu.value_or(DEFAULT_MTU) - 8 - 40; // UDP/IPv6
+#if USE_WOLFSSL
+		wolfSSL_CTX_dtls_set_mtu(mCtx, static_cast<unsigned short>(mtu));
+#else
 		SSL_set_mtu(mSsl, static_cast<unsigned int>(mtu));
+#endif
 		PLOG_VERBOSE << "DTLS MTU set to " << mtu;
 
 		// Initiate the handshake
@@ -944,7 +957,11 @@ void DtlsTransport::doRecv() {
 					// See https://www.rfc-editor.org/rfc/rfc8261.html#section-5
 					{
 						std::lock_guard lock(mSslMutex);
+#if USE_WOLFSSL
+						wolfSSL_CTX_dtls_set_mtu( mCtx, static_cast<unsigned short>(bufferSize + 1));
+#else
 						SSL_set_mtu(mSsl, bufferSize + 1);
+#endif
 					}
 
 					PLOG_INFO << "DTLS handshake finished";
@@ -1000,7 +1017,11 @@ void DtlsTransport::handleTimeout() {
 	}
 
 	struct timeval tv = {};
+#if USE_WOLFSSL
+	if (DTLSv1_get_timeout(mSsl, &tv) == 0) {
+#else
 	if (DTLSv1_get_timeout(mSsl, &tv)) {
+#endif
 		auto timeout = milliseconds(tv.tv_sec * 1000 + tv.tv_usec / 1000);
 		// Also handle handshake timeout manually because OpenSSL actually
 		// doesn't... OpenSSL backs off exponentially in base 2 starting from the

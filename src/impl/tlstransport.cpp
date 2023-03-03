@@ -586,8 +586,11 @@ TlsTransport::TlsTransport(variant<shared_ptr<TcpTransport>, shared_ptr<HttpProx
 				PLOG_WARNING << "SSL root CA certificates unavailable";
 			}
 		}
-
-		SSL_CTX_set_options(mCtx, SSL_OP_NO_SSLv3 | SSL_OP_NO_RENEGOTIATION);
+		auto options = SSL_OP_NO_SSLv3;
+#ifdef SSL_OP_NO_RENEGOTIATION
+		options |= SSL_OP_NO_RENEGOTIATION;
+#endif
+		SSL_CTX_set_options(mCtx, options);
 		SSL_CTX_set_min_proto_version(mCtx, TLS1_VERSION);
 		SSL_CTX_set_read_ahead(mCtx, 1);
 		SSL_CTX_set_quiet_shutdown(mCtx, 0); // send the close_notify alert
@@ -600,8 +603,13 @@ TlsTransport::TlsTransport(variant<shared_ptr<TcpTransport>, shared_ptr<HttpProx
 		SSL_set_ex_data(mSsl, TransportExIndex, this);
 
 		if (mIsClient && mHost) {
+#if USE_WOLFSSL
+			wolfSSL_set_verify(mSsl, WOLFSSL_VERIFY_NONE, NULL);
+			openssl::check(wolfSSL_check_domain_name(mSsl, mHost->c_str()), "Failed to set SSL host");
+#else
 			SSL_set_hostflags(mSsl, 0);
 			openssl::check(SSL_set1_host(mSsl, mHost->c_str()), "Failed to set SSL host");
+#endif
 
 			PLOG_VERBOSE << "Server Name Indication: " << *mHost;
 			SSL_set_tlsext_host_name(mSsl, mHost->c_str());

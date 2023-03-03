@@ -6,6 +6,7 @@ set(PROJECT_DESCRIPTION "C/C++ WebRTC network library featuring Data Channels, M
 
 # Options
 option(USE_MBEDTLS "Use Mbed TLS instead of OpenSSL" OFF)
+option(USE_WOLFSSL "Use WolfSSL instead of OpenSSL" OFF)
 option(USE_GNUTLS "Use GnuTLS instead of OpenSSL" OFF)
 option(USE_NICE "Use libnice instead of libjuice" OFF)
 option(PREFER_SYSTEM_LIB "Prefer system libraries over deps folder" OFF)
@@ -35,8 +36,10 @@ else()
 	if(NOT USE_SYSTEM_SRTP)
 		if (USE_MBEDTLS)
 			option(ENABLE_MBEDTLS "Enable Mbed TLS crypto engine for libSRTP" ON)
+		elseif(USE_WOLFSSL)
+			option(ENABLE_WOLFSSL "Enable WolfSSL crypto engine for SRTP" ON)
 		else()
-			option(ENABLE_OPENSSL "Enable OpenSSL crypto engine for libSRTP" ON)
+			option(ENABLE_OPENSSL "Enable OpenSSL crypto engine for SRTP" ON)
 		endif()
 	endif()
 endif()
@@ -365,6 +368,25 @@ elseif(USE_MBEDTLS)
 	target_compile_definitions(datachannel-static PRIVATE USE_MBEDTLS)
 	target_link_libraries(datachannel PRIVATE MbedTLS::MbedTLS)
 	target_link_libraries(datachannel-static PRIVATE MbedTLS::MbedTLS)
+elseif (ENABLE_WOLFSSL)
+		add_library( wolfssl SHARED IMPORTED )
+		set_target_properties( wolfssl PROPERTIES
+        	IMPORTED_LOCATION_DEBUG "$ENV{WOLFSSL_LIBRARY_PATH}"
+        	IMPORTED_LOCATION_RELEASE "$ENV{WOLFSSL_LIBRARY_PATH}"
+        	IMPORTED_LOCATION_MINSIZEREL "$ENV{WOLFSSL_LIBRARY_PATH}"
+        	IMPORTED_LOCATION_RELWITHDEBINFO "$ENV{WOLFSSL_LIBRARY_PATH}"
+			INTERFACE_INCLUDE_DIRECTORIES "$ENV{WOLFSSL_INCLUDE_PATH}"
+		)
+		add_library(wolfssl::wolfssl ALIAS wolfssl)
+
+		target_compile_definitions(datachannel PRIVATE USE_GNUTLS=0)
+		target_compile_definitions(datachannel-static PRIVATE USE_GNUTLS=0)
+		target_compile_definitions(datachannel PUBLIC USE_WOLFSSL=1)
+		target_compile_definitions(datachannel-static PUBLIC USE_WOLFSSL=1)
+		target_compile_definitions(datachannel PUBLIC ${WOLFSSL_DEFINITIONS})
+		target_compile_definitions(datachannel-static PUBLIC ${WOLFSSL_DEFINITIONS})
+		target_link_libraries(datachannel PUBLIC wolfssl::wolfssl)
+		target_link_libraries(datachannel-static PUBLIC wolfssl::wolfssl)
 else()
 	if(APPLE)
 		# This is a bug in CMake that causes it to prefer the system version over
