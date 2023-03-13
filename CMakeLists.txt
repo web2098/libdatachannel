@@ -4,6 +4,9 @@ project(libdatachannel
 	LANGUAGES CXX)
 set(PROJECT_DESCRIPTION "C/C++ WebRTC network library featuring Data Channels, Media Transport, and WebSockets")
 
+list(PREPEND CMAKE_PREFIX_PATH "${CMAKE_BINARY_DIR}")
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_BINARY_DIR}")
+
 # Options
 option(USE_GNUTLS "Use GnuTLS instead of OpenSSL" OFF)
 option(USE_NICE "Use libnice instead of libjuice" OFF)

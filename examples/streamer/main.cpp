@@ -99,6 +99,61 @@ void wsOnMessage(json message, Configuration config, shared_ptr<WebSocket> ws) {
 }
 
 int main(int argc, char **argv) try {
+
+    rtc::InitLogger(rtc::LogLevel::Debug, [](rtc::LogLevel level, std::string message)
+    {
+        switch( level )
+        {
+        case rtc::LogLevel::Fatal:
+            std::puts( ( std::string( "FATAL : " ) + message ).c_str() );
+            break;
+        case rtc::LogLevel::Error:
+            std::puts( ( std::string( "ERROR : " ) + message ).c_str() );
+            break;
+        case rtc::LogLevel::Warning:
+            std::puts( ( std::string( "WARN : " ) + message ).c_str() );
+            break;
+        case rtc::LogLevel::Info:
+            std::puts( ( std::string( "INFO : " ) + message ).c_str() );
+            break;
+        case rtc::LogLevel::Debug:
+            std::puts( ( std::string( "DEBUG : " ) + message ).c_str() );
+            break;
+        case rtc::LogLevel::Verbose:
+            std::puts( ( std::string( "TRACE : " ) + message ).c_str() );
+            break;
+        case rtc::LogLevel::None:
+            break;
+        }
+    });
+
+	WebSocket::Configuration wsConfig;
+	wsConfig.proxyServer = ProxyServer("http://web-proxy.austin.hpicorp.net:8080");
+
+    auto ws = make_shared<WebSocket>(wsConfig);
+
+    ws->onOpen([]() { cout << "WebSocket connected, signaling ready" << endl; });
+
+    ws->onClosed([]() { cout << "WebSocket closed" << endl; });
+
+    ws->onError([](const string &error) { cout << "WebSocket failed: " << error << endl; });
+
+    const string url = "wss://icicle-signal-stg.hpbp.io?from=client&session_token=WmJtQjUzbUlhVzoxRHI2RTR1UVFu&device_id=ddc49e0f-b779-11ed-9726-222ad5e8916d";
+    cout << "URL is " << url << endl;
+    ws->open(url);
+
+    while( !ws->isOpen() )
+    {
+        if( ws->isClosed() )
+        {
+            cout << "WS closed!" << std::endl;
+			return 1;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+    cout << "WS Openned!" << std::endl;
+    return 0;
+#if 0
     bool enableDebugLogs = false;
     bool printHelp = false;
     int c = 0;
@@ -196,6 +251,7 @@ int main(int argc, char **argv) try {
 
     cout << "Cleaning up..." << endl;
     return 0;
+#endif
 
 } catch (const std::exception &e) {
     std::cout << "Error: " << e.what() << std::endl;

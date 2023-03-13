@@ -1,0 +1,9 @@
+[requires]
+openssl/1.1.1s
+
+[options]
+openssl:shared=True
+openssl:no_ssl=True
+
+[generators]
+CMakeDeps
