@@ -103,7 +103,7 @@ void WebSocket::open(const string &url) {
 	if (string query = m[15]; !query.empty())
 		path += "?" + query;
 
-	mHostname = hostname; // for TLS SNI
+	mHostname = hostname; // for TLS SNI and Proxy
 	mService = service; //For proxy
 	std::atomic_store(&mWsHandshake, std::make_shared<WsHandshake>(host, path, config.protocols));
 
@@ -111,7 +111,6 @@ void WebSocket::open(const string &url) {
 
 	if (mIsProxied)
 	{
-		//TODO catch bad convert
 		setTcpTransport(std::make_shared<TcpTransport>(mProxy.value().hostname, std::to_string(mProxy.value().port), nullptr));
 	}
 	else
@@ -299,7 +298,6 @@ shared_ptr<TcpProxyTransport> WebSocket::initProxyTransport() {
 			}
 		};
 
-		//TODO check optionals?
 		auto transport = std::make_shared<TcpProxyTransport>( lower, mHostname.value(), mService.value(), stateChangeCallback );
 
 		return emplaceTransport(this, &mProxyTransport, std::move(transport));
@@ -318,9 +316,20 @@ shared_ptr<TlsTransport> WebSocket::initTlsTransport() {
 		if (auto transport = std::atomic_load(&mTlsTransport))
 			return transport;
 
-		auto lower = std::atomic_load(&mTcpTransport);
-		if (!lower)
-			throw std::logic_error("No underlying TCP transport for TLS transport");
+		variant<shared_ptr<TcpTransport>, shared_ptr<TcpProxyTransport>> lower;
+		if (mIsProxied) {
+			auto transport = std::atomic_load(&mProxyTransport);
+			if (!transport)
+				throw std::logic_error("No underlying TLS transport for WebSocket transport");
+
+			lower = transport;
+		} else {
+			auto transport = std::atomic_load(&mTcpTransport);
+			if (!transport)
+				throw std::logic_error("No underlying TCP transport for WebSocket transport");
+
+			lower = transport;
+		}
 
 		auto stateChangeCallback = [this, weak_this = weak_from_this()](State transportState) {
 			auto shared_this = weak_this.lock();
