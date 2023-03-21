@@ -50,8 +50,7 @@ WsTransport::WsTransport(variant<shared_ptr<TcpTransport>, shared_ptr<HttpProxyT
                 std::move(stateCallback)),
       mHandshake(std::move(handshake)),
       mIsClient(
-          std::visit(rtc::overloaded{[](shared_ptr<TcpTransport> l) { return l->isActive(); },
-		  							 [](shared_ptr<HttpProxyTransport> l) { return l->isActive(); },
+          std::visit(rtc::overloaded{[](auto l) { return l->isActive(); },
                                      [](shared_ptr<TlsTransport> l) { return l->isClient(); }},
                      lower)),
       mMaxOutstandingPings(maxOutstandingPings) {
