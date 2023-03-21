@@ -7,6 +7,7 @@
  */
 
 #include "wstransport.hpp"
+#include "httpproxytransport.hpp"
 #include "tcptransport.hpp"
 #include "threadpool.hpp"
 #include "tlstransport.hpp"
